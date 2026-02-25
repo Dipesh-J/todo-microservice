@@ -1,0 +1,400 @@
+{
+  "info": {
+    "_postman_id": "a4efb244-5c14-4b35-9f50-07e0b2ee34f8",
+    "name": "Todo Microservice API",
+    "description": "Collection for testing Auth and Todo service endpoints in the todo-microservice project.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Auth Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_base_url}}/healthz",
+              "host": [
+                "{{auth_base_url}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Service is auth-service', function () {",
+                  "  pm.expect(json.service).to.eql('auth-service');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Todo Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{todo_base_url}}/healthz",
+              "host": [
+                "{{todo_base_url}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Service is todo-service', function () {",
+                  "  pm.expect(json.service).to.eql('todo-service');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth - Registration",
+      "item": [
+        {
+          "name": "Register User (Unique Email)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const uniqueEmail = `user_${Date.now()}@example.com`;",
+                  "pm.collectionVariables.set('generated_email', uniqueEmail);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Response contains created user', function () {",
+                  "  pm.expect(json).to.have.property('data');",
+                  "  pm.expect(json.data).to.have.property('userId');",
+                  "  pm.expect(json.data).to.have.property('email');",
+                  "});",
+                  "pm.collectionVariables.set('last_registered_email', json.data.email);",
+                  "pm.collectionVariables.set('last_registered_user_id', json.data.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{generated_email}}\",\n  \"password\": \"{{register_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_base_url}}/register",
+              "host": [
+                "{{auth_base_url}}"
+              ],
+              "path": [
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register Same Email Again (Expect 409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{last_registered_email}}\",\n  \"password\": \"{{register_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_base_url}}/register",
+              "host": [
+                "{{auth_base_url}}"
+              ],
+              "path": [
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register Invalid Payload (Expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invalid-email\",\n  \"password\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_base_url}}/register",
+              "host": [
+                "{{auth_base_url}}"
+              ],
+              "path": [
+                "register"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Todo - Query APIs",
+      "item": [
+        {
+          "name": "Get All Todos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has array data', function () {",
+                  "  pm.expect(json.data).to.be.an('array');",
+                  "});",
+                  "pm.test('Response has pagination object', function () {",
+                  "  pm.expect(json).to.have.property('pagination');",
+                  "  pm.expect(json.pagination).to.have.property('limit');",
+                  "  pm.expect(json.pagination).to.have.property('offset');",
+                  "  pm.expect(json.pagination).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{todo_base_url}}/todos?limit=50&offset=0",
+              "host": [
+                "{{todo_base_url}}"
+              ],
+              "path": [
+                "todos"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Todos By Last Registered User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const userId = pm.collectionVariables.get('last_registered_user_id');",
+                  "if (!userId) {",
+                  "  throw new Error('Run Register User (Unique Email) first to set last_registered_user_id.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Response has array data', function () {",
+                  "  pm.expect(json.data).to.be.an('array');",
+                  "});",
+                  "pm.test('Response has pagination object', function () {",
+                  "  pm.expect(json).to.have.property('pagination');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{todo_base_url}}/todos/{{last_registered_user_id}}?limit=50&offset=0",
+              "host": [
+                "{{todo_base_url}}"
+              ],
+              "path": [
+                "todos",
+                "{{last_registered_user_id}}"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Todos With Invalid Query (Expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{todo_base_url}}/todos?limit=-1",
+              "host": [
+                "{{todo_base_url}}"
+              ],
+              "path": [
+                "todos"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "-1"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "auth_base_url",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "todo_base_url",
+      "value": "http://localhost:3002"
+    },
+    {
+      "key": "register_password",
+      "value": "StrongPass123"
+    },
+    {
+      "key": "generated_email",
+      "value": ""
+    },
+    {
+      "key": "last_registered_email",
+      "value": ""
+    },
+    {
+      "key": "last_registered_user_id",
+      "value": ""
+    }
+  ]
+}

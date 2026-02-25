@@ -1,0 +1,98 @@
+services:
+  mongo:
+    image: mongo:7.0
+    command: ["mongod", "--replSet", "${MONGO_REPLICA_SET:-rs0}", "--bind_ip_all"]
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand({ ping: 1 }).ok\" | grep 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  mongo-init-replica:
+    image: mongo:7.0
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_HOST: mongo
+      MONGO_PORT: 27017
+      MONGO_REPLICA_SET_NAME: ${MONGO_REPLICA_SET:-rs0}
+    volumes:
+      - ./scripts/mongo-replica-init.sh:/scripts/mongo-replica-init.sh:ro
+    entrypoint: ["/bin/bash", "/scripts/mongo-replica-init.sh"]
+    restart: "no"
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    depends_on:
+      mongo-init-replica:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: ${AUTH_SERVICE_PORT:-3001}
+      MONGODB_URI: mongodb://mongo:27017/?replicaSet=${MONGO_REPLICA_SET:-rs0}
+      DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-user.registered}
+      OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-3000}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-20}
+      OUTBOX_LOCK_TTL_MS: ${OUTBOX_LOCK_TTL_MS:-30000}
+      OUTBOX_RETRY_BASE_MS: ${OUTBOX_RETRY_BASE_MS:-2000}
+      OUTBOX_RETRY_MAX_MS: ${OUTBOX_RETRY_MAX_MS:-60000}
+      DB_CONNECT_MAX_RETRIES: ${DB_CONNECT_MAX_RETRIES:-0}
+      DB_RETRY_DELAY_MS: ${DB_RETRY_DELAY_MS:-1000}
+    ports:
+      - "${AUTH_SERVICE_PORT:-3001}:3001"
+    restart: unless-stopped
+
+  todo-service:
+    build:
+      context: .
+      dockerfile: todo-service/Dockerfile
+    depends_on:
+      mongo-init-replica:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: ${TODO_SERVICE_PORT:-3002}
+      MONGODB_URI: mongodb://mongo:27017/?replicaSet=${MONGO_REPLICA_SET:-rs0}
+      DB_NAME: ${TODO_DB_NAME:-todo_db}
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-user.registered}
+      CONSUMER_PREFETCH: ${CONSUMER_PREFETCH:-20}
+      DB_CONNECT_MAX_RETRIES: ${DB_CONNECT_MAX_RETRIES:-0}
+      DB_RETRY_DELAY_MS: ${DB_RETRY_DELAY_MS:-1000}
+      RABBITMQ_CONNECT_MAX_RETRIES: ${RABBITMQ_CONNECT_MAX_RETRIES:-0}
+      RABBITMQ_RETRY_DELAY_MS: ${RABBITMQ_RETRY_DELAY_MS:-2000}
+    ports:
+      - "${TODO_SERVICE_PORT:-3002}:3002"
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  rabbitmq_data:
