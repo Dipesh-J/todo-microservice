@@ -32,11 +32,11 @@ docker compose version
 1. Clone and open the repo:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Dipesh-J/todo-microservice
 cd todo-microservice
 ```
 
-2. (Optional) copy env template:
+2. copy env template:
 
 ```bash
 cp .env.example .env
